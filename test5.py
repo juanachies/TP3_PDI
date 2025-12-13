@@ -63,38 +63,38 @@ while True:
         num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(th, 8, cv2.CV_32S)
 
         conteo_dado = []  # Cambié el diccionario por una lista para contar los dados
-        for stat in stats:
+        for stat in stats[1:]:
             x, y, w, h, area = stat
             aspect_ratio = w / h
 
-            # Filtrar por área y proporción
-            if 300 < area < 3000 and 0.5 < aspect_ratio < 1:
-                roi = gray[y:y + h, x:x + w]
+            # DADO completo
+            if 2000 < area < 15000 and 0.8 < aspect_ratio < 1.2:
+                roi = gray[y:y+h, x:x+w]
+                roi_blur = cv2.GaussianBlur(roi, (9, 9), 1.5)
 
                 circles = cv2.HoughCircles(
-                roi,
-                cv2.HOUGH_GRADIENT,
-                dp=1.2,
-                minDist=20,
-                param1=100,     # Canny alto
-                param2=5,      # sensibilidad (BAJAR si no detecta)
-                minRadius=6,
-                maxRadius=15
+                    roi_blur,
+                    cv2.HOUGH_GRADIENT,
+                    dp=1.2,
+                    minDist=20,
+                    param1=100,
+                    param2=15,
+                    minRadius=6,
+                    maxRadius=15
                 )
 
                 num_puntos = 0
                 if circles is not None:
-                    for circle in circles[0]:
-                        num_puntos += 1
-                    conteo_dado.append(num_puntos)  # Agregar el conteo de puntos
-                label = f'Dado de {num_puntos} caras'
+                    num_puntos = len(circles[0])
 
-                # Dibujar el rectángulo y el texto sobre el dado detectado
-                cv2.rectangle(gray, (x, y), (x + w, y + h), (255, 255, 255), 2)
-                cv2.putText(gray, f"{num_puntos}", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+                cv2.rectangle(gray, (x, y), (x+w, y+h), (255,255,255), 2)
+                cv2.putText(gray, str(num_puntos), (x, y-5), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
 
-        # Mostrar la imagen resultante
-        cv2.imshow("Solo area verde (color)", gray)
+                # DEBUG
+                cv2.imshow("ROI dado", roi)
+
+                # Mostrar la imagen resultante
+                cv2.imshow("Solo area verde (color)", gray)
 
     if cv2.waitKey(25) & 0xFF == ord('q'):
         break

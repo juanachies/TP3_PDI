@@ -1,57 +1,65 @@
-import os
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
-os.makedirs("frames", exist_ok = True)
+cap = cv2.VideoCapture('tirada_2.mp4')
 
-cap = cv2.VideoCapture('tirada_4.mp4')  # Abre el archivo de video especificado ('tirada_1.mp4') para su lectura.
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))  # Obtiene el ancho del video en píxeles usando la propiedad CAP_PROP_FRAME_WIDTH.
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))  # Obtiene la altura del video en píxeles usando la propiedad CAP_PROP_FRAME_HEIGHT.
-fps = int(cap.get(cv2.CAP_PROP_FPS))  # Obtiene los cuadros por segundo (FPS) del video usando CAP_PROP_FPS.
-n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) # Obtiene el número total de frames en el video usando CAP_PROP_FRAME_COUNT.
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
 
+    frame = cv2.resize(frame, None, fx=0.33, fy=0.33)
 
-frame_number = 100
-while (cap.isOpened()): # Verifica si el video se abrió correctamente.
+    # HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    ret, frame = cap.read() # 'ret' indica si la lectura fue exitosa (True/False) y 'frame' contiene el contenido del frame si la lectura fue exitosa.
+    # Rango del verde
+    lower_green = np.array([35, 40, 40])
+    upper_green = np.array([85, 255, 255])
 
-    if ret == True:  
-        frame = cv2.resize(frame, dsize=(int(width/3), int(height/3))) # Redimensiona el frame capturado.
-        #cv2.imshow('Frame', frame) # Muestra el frame redimensionado.
-        #cv2.imwrite(os.path.join("frames", f"frame_{frame_number}.jpg"), frame) # Guarda el frame en el archivo './frames/frame_{frame_number}.jpg'.
+    # Máscara del verde
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Limpiar un poco la máscara
+    kernel = np.ones((7, 7), np.uint8)
+    mask_green = cv2.morphologyEx(mask_green, cv2.MORPH_CLOSE, kernel)
+
+    # Contornos del verde
+    contours, _ = cv2.findContours(mask_green, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if contours:
+        # Fondo verde = contorno más grande
+        c = max(contours, key=cv2.contourArea)
+
+        # Crear máscara vacía
+        mask_area = np.zeros(mask_green.shape, dtype=np.uint8)
+
+        # Dibujar el área verde completa
+        cv2.drawContours(mask_area, [c], -1, 255, thickness=cv2.FILLED)
+
+        # Aplicar la máscara al frame ORIGINAL
+        resultado = cv2.bitwise_and(frame, frame, mask=mask_area)
+
+        gray = cv2.cvtColor(resultado, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0) 
-        edges = cv2.Canny(blurred, 20, 150)  
+        edges = cv2.Canny(blurred, 50, 100)
 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        # Rango de verde (ajustable)
-        lower_green = np.array([35, 50, 50])
-        upper_green = np.array([85, 255, 255])
-
-        # Crear máscara
-        mask = cv2.inRange(hsv, lower_green, upper_green)
-
-        # Aplicar máscara
-        result = cv2.bitwise_and(frame, frame, mask=mask)
-        cv2.imshow('resultado', result)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5,5))
+        closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel, iterations=1)
 
 
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(closed, 8, cv2.CV_32S)
 
+        for stat in stats:
+            x, y, w, h, area = stat
+            aspect_ratio = w / h
+            if area < 800 and aspect_ratio > 0.7 and aspect_ratio < 1.3:
+               cv2.rectangle(closed, (x, y), (x + w, y + h), (255, 255, 255), 2)
 
-        # cv2.imshow('Frame', edges) # Muestra el frame redimensionado.
-        # cv2.imwrite(os.path.join("frames", f"frame_{frame_number}.jpg"), edges) # Guarda el frame en el archivo './frames/frame_{frame_number}.jpg'.
+        cv2.imshow("Solo area verde (color)", closed)
 
+    if cv2.waitKey(25) & 0xFF == ord('q'):
+        break
 
-
-        frame_number += 1
-        if cv2.waitKey(25) & 0xFF == ord('q'): # Espera 25 milisegundos a que se presione una tecla. Si se presiona 'q' se rompe el bucle y se cierra la ventana.
-            break
-    else:  
-        break  
-
-#cap.release() # Libera el objeto 'cap', cerrando el archivo.
-#cv2.destroyAllWindows() # Cierra todas las ventanas abiertas.
+cap.release()
+cv2.destroyAllWindows()
