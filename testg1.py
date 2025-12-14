@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
 import math
+from statistics import mode
 
-def detectar_dados():
-    cap = cv2.VideoCapture('tirada_4.mp4')
+def detectar_dados(nombre_video):
+    cap = cv2.VideoCapture(nombre_video)
 
     centroides_previos = []
     frames_quietos = 0
@@ -122,10 +123,7 @@ def detectar_dados():
                 if not valores_finales:
                     print("Dados detenidos:")
                     for i in historial_valores:
-                        valor_final = max(
-                            set(historial_valores[i]),
-                            key=historial_valores[i].count
-                        )
+                        valor_final = mode(historial_valores[i])
                         valores_finales[i] = valor_final
                         print(f"Dado {i+1}: {valor_final}")
 
